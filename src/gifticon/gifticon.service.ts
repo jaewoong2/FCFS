@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { CreateGiftconDto } from './dto/create-giftcon.dto';
-import { UpdateGiftconDto } from './dto/update-giftcon.dto';
+import { CreateGiftconDto } from './dto/create-gifticon.dto';
+import { UpdateGiftconDto } from './dto/update-gifticon.dto';
 
 @Injectable()
 export class GiftconService {

@@ -1,7 +1,7 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { GiftconService } from './giftcon.service';
+import { GiftconService } from './gifticon.service';
 
-@Controller('giftcon')
+@Controller('gifticon')
 export class GiftConController {
   private MAX_VOUCHERS = 100;
 

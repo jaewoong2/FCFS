@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmConfigService } from './core/config/typeorm.config';
 import { GiftconModule } from './giftcon/giftcon.module';
+import { EventModule } from './event/event.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { GiftconModule } from './giftcon/giftcon.module';
     AuthModule,
     UsersModule,
     GiftconModule,
+    EventModule,
   ],
   controllers: [AppController],
   providers: [
