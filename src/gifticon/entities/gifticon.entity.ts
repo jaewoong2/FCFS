@@ -1,9 +1,10 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Event } from 'src/event/entities/event.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Basic } from 'src/core/entities/basic.entitiy';
 
 @Entity('gifticons')
-export class Gifticon {
+export class Gifticon extends Basic {
   @Column({ type: 'varchar', unique: true })
   imageUrl: string;
 

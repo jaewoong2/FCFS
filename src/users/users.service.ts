@@ -13,7 +13,7 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  async findById(userId: string) {
+  async findById(userId: number) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['likes'],

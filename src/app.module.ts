@@ -11,8 +11,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmConfigService } from './core/config/typeorm.config';
-import { GiftconModule } from './giftcon/giftcon.module';
 import { EventModule } from './event/event.module';
+import { GifticonRequestLogModule } from './gifticon-request-log/gifticon-request-log.module';
+import { GifticonModule } from './gifticon/gifticon.module';
 
 @Module({
   imports: [
@@ -27,8 +28,9 @@ import { EventModule } from './event/event.module';
     }),
     AuthModule,
     UsersModule,
-    GiftconModule,
+    GifticonModule,
     EventModule,
+    GifticonRequestLogModule,
   ],
   controllers: [AppController],
   providers: [

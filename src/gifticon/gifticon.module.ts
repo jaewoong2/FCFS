@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { GiftconService } from './gifticon.service';
-import { GiftconController } from './gifticon.controller';
+import { GiftiConController } from './gifticon.controller';
+import { GifticonService } from './gifticon.service';
 
 @Module({
-  controllers: [GiftconController],
-  providers: [GiftconService],
+  controllers: [GiftiConController],
+  providers: [GifticonService],
 })
-export class GiftconModule {}
+export class GifticonModule {}
