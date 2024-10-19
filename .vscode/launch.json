@@ -1,0 +1,27 @@
+{
+  // launch.json의 버전
+  "version": "0.2.0",
+  // Debugging 설정의 배열, 여러개의 Debugging 환경을 설정할 수 있음함
+  "configurations": [
+    {
+      // Debugging 대상의 타입
+      "type": "node",
+      // 대표적으로 'attach'와 'launch'를 사용하며 'attach'는 현재 실행된 앱에 Debug를 시작, 'launch'는 Debugging을 실행함.
+      "request": "launch",
+      // Debugger의 이름
+      "name": "Debug NestJS",
+      // Debugging할 때 실행할 실행 파일.(npm을 이용해 실행)
+      "runtimeExecutable": "npm",
+      // 앞에 설정한 실행 파일에 전달할 인수.('npm run start:debug'와 같은 형태를 만듬)
+      "runtimeArgs": ["run", "start:debug"],
+      // 대표적으로 'integratedTerminal'과 'externalTerminal'이 있는데 'integratedTerminal'은 VSCode 내부 터미널에 실행, 'externalTerminal'은 외부 터미널에 실행함.
+      "console": "integratedTerminal",
+      // Debugging중 앱이 종료되면 재실행함.
+      "restart": true,
+      // Debugging Port는 9229번으로 지정함.(Node.js 앱의 기본 Port)
+      "port": 3001,
+      // 새로운 자식 프로세스가 생성되면 실행하고 있는 Debugger에 자동으로 연결됨.
+      "autoAttachChildProcesses": true
+    }
+  ]
+}

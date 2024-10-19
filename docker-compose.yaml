@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  gpt-archive:
+    platform: linux/amd64
+    image: 849441246713.dkr.ecr.ap-northeast-2.amazonaws.com/chrome-extension-backend:latest
+    build:
+      dockerfile: Dockerfile
+      args:
+        PROJECT_NAME: gpt-archive
+    environment:
+      - NODE_ENV=production
+      - PROJECT_NAME=gpt-archive
+    ports:
+      - "9000:8080"
