@@ -8,4 +8,10 @@ export class Event extends Basic {
 
   @Column({ type: 'timestamp', nullable: true })
   eventDate: Date;
+
+  @Column({ type: 'int', nullable: false })
+  maxParticipants: number; // 선착순 가능 인원 수
+
+  @Column({ type: 'int', nullable: false })
+  totalGifticons: number; // 총 기프티콘 수
 }
