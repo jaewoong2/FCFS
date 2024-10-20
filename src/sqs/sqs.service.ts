@@ -7,14 +7,14 @@ export class SqsService {
 
   private sqs = new SQS({ region: 'ap-northeast-2' });
   private queueUrl =
-    'https://sqs.ap-northeast-2.amazonaws.com/849441246713/RamSQS';
+    'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/sqs-services.fifo';
 
-  async sendMessage(message: any) {
+  async sendMessage<T extends { [key: string]: any }>(message: T) {
     const params = {
       QueueUrl: this.queueUrl,
       MessageBody: JSON.stringify(message),
     };
 
-    await this.sqs.sendMessage(params).promise();
+    return await this.sqs.sendMessage(params).promise();
   }
 }
