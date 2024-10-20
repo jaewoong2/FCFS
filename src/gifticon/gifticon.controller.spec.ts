@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GiftconController } from './gifticon.controller';
-import { GiftconService } from './gifticon.service';
+import { GiftconService } from './giftcon.service';
 
 describe('GiftconController', () => {
   let controller: GiftconController;

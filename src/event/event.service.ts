@@ -1,26 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { CreateEventDto } from './dto/create-event.dto';
-import { UpdateEventDto } from './dto/update-event.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
+import { Repository } from 'typeorm';
+import { Event } from './entities/event.entity';
 
 @Injectable()
 export class EventService {
-  create(createEventDto: CreateEventDto) {
-    return 'This action adds a new event';
-  }
+  constructor(
+    @InjectRepository(Gifticon)
+    private readonly gifitconRepository: Repository<Gifticon>,
 
-  findAll() {
-    return `This action returns all event`;
-  }
+    @InjectRepository(Event)
+    private readonly eventRepository: Repository<Event>,
+  ) {}
 
-  findOne(id: number) {
-    return `This action returns a #${id} event`;
-  }
+  async getStatus(eventId: number) {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+    });
+    const claimed = await this.gifitconRepository.count({
+      where: { isClaimed: true, event: { id: eventId } },
+    });
 
-  update(id: number, updateEventDto: UpdateEventDto) {
-    return `This action updates a #${id} event`;
-  }
+    if (event.maxParticipants <= claimed) {
+      return {
+        isAvailable: false,
+        message: '기프티콘 발급이 불가능 합니다 (선착순 인원 참여 완료)',
+      };
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} event`;
+    return {
+      isAvailable: true,
+      message: '기프티콘 발급이 가능 합니다',
+    };
   }
 }
