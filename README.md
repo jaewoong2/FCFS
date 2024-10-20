@@ -1,5 +1,8 @@
 # First Come First Serve | 선착순 대기열 시스템
 
+<img width="854" alt="image" src="https://github.com/user-attachments/assets/fdf400ae-a64b-40d6-903c-dc1df3946a31">
+
+
 ## 대규모 트래픽 처리 테스트를 위한 개발 테스트
 
 ## Redis Module
