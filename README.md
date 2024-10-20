@@ -1,6 +1,6 @@
 # First Come First Serve | 선착순 대기열 시스템
 
-<img width="854" alt="image" src="https://github.com/user-attachments/assets/fdf400ae-a64b-40d6-903c-dc1df3946a31">
+<img width="845" alt="image" src="https://github.com/user-attachments/assets/333706f3-5f1a-4565-aebf-d887a5e93ca4">
 
 
 ## 대규모 트래픽 처리 테스트를 위한 개발 테스트
