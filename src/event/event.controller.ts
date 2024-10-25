@@ -3,7 +3,7 @@ import { EventService } from './event.service';
 import { GetStatusEventDto } from './dto/get-status-event.dto';
 import { PostApplyEventDto } from './dto/apply-event.dto';
 
-@Controller('event')
+@Controller('api/event')
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
@@ -14,8 +14,31 @@ export class EventController {
   }
 
   @Post('apply')
-  async applyEvent(@Body() body: PostApplyEventDto) {
-    const result = await this.eventService.applyEvent(body);
-    return result;
+  async applyEvent(@Body() metadata: PostApplyEventDto) {
+    try {
+      const isAvailable = await this.eventService.isAvailable(metadata);
+
+      if (!isAvailable.isAvailable) {
+        return isAvailable;
+      }
+
+      const status = await this.eventService.getStatus(metadata.eventId);
+
+      if (!status.isAvailable) {
+        return status;
+      }
+
+      const result = await this.eventService.participate(metadata);
+
+      return result;
+    } catch (err) {
+      console.log(err);
+      return err;
+    }
+  }
+
+  @Post('receive')
+  comsumeEvent() {
+    return null;
   }
 }

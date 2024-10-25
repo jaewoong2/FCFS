@@ -43,8 +43,6 @@ export class ServiceException extends Error {
 
     super(message);
 
-    console.error(message);
-
     this.errorCode = errorCode;
   }
 }
