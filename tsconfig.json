@@ -3,6 +3,7 @@
     "esModuleInterop": true,
     "module": "commonjs",
     "declaration": true,
+    "allowJs": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
