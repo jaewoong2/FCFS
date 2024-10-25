@@ -1,17 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GiftconController } from './gifticon.controller';
-import { GiftconService } from './giftcon.service';
+import { GiftiConController } from './gifticon.controller';
+import { GifticonService } from './gifticon.service';
 
 describe('GiftconController', () => {
-  let controller: GiftconController;
+  let controller: GiftiConController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [GiftconController],
-      providers: [GiftconService],
+      controllers: [GiftiConController],
+      providers: [GifticonService],
     }).compile();
 
-    controller = module.get<GiftconController>(GiftconController);
+    controller = module.get<GiftiConController>(GiftiConController);
   });
 
   it('should be defined', () => {
