@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Message } from './types';
 import { getYYYYMMDDhhmm } from 'src/core/utils/date';
 import { PostApplyEventDto } from './dto/apply-event.dto';
+import { EntityNotFoundException } from 'src/core/filters/exception/service.exception';
 
 // Define Zod schema for PostApplyEventDto
 const PostApplyEventSchema = z.object({
@@ -44,7 +45,7 @@ export class EventService {
       select: ['id'],
     });
 
-    if (participant?.id) {
+    if (participant && participant?.id) {
       return {
         isAvailable: false,
         message: '이미 참여 완료 하였습니다.',
@@ -105,32 +106,18 @@ export class EventService {
   }
 
   async participate({ eventId, userId }: PostApplyEventDto) {
-    await this.sqsService.sendMessage(
-      { eventId, userId, timestamp: getYYYYMMDDhhmm() },
-      {
-        MessageGroupId: this.messasgeGroupId,
-        MessageAttributes: {
-          userId: {
-            DataType: 'Number',
-            StringValue: userId.toString(),
-          },
-          eventId: {
-            DataType: 'Number',
-            StringValue: eventId.toString(),
-          },
-        },
-      },
-    );
+    await this.sendMessage({ eventId, userId });
 
-    const { ReceiptHandle } = await this.receiveMatchingMessage(
-      eventId,
-      userId,
-    );
+    const receiveResult = await this.receiveMatchingMessage(eventId, userId);
 
-    await this.sqsService.deleteMessage(ReceiptHandle);
+    if (!receiveResult) {
+      throw EntityNotFoundException('SQS Queue Message 가 존재 하지 않습니다.');
+    }
+
+    await this.sqsService.deleteMessage(receiveResult.ReceiptHandle);
 
     const participantsCount = await this.participatnRepository.findAndCount({
-      where: { event: { id: eventId } },
+      where: { event: { id: eventId }, isApply: true },
     });
 
     const { maxParticipants } = await this.eventRepository.findOne({
@@ -140,8 +127,9 @@ export class EventService {
 
     if (maxParticipants <= participantsCount[1]) {
       return {
+        drawable: false,
         message: '현재 참여자가 몰려 있습니다, 조금 후에 참여 해주세요.',
-        participant: userId,
+        userId: userId,
       };
     }
 
@@ -150,13 +138,19 @@ export class EventService {
       userId,
     );
 
-    participant.isApply = true;
-
-    await this.participatnRepository.save(participant);
+    try {
+      participant.isApply = true;
+      await this.participatnRepository.save(participant);
+    } catch (err) {
+      participant.isApply = false;
+      await this.participatnRepository.save(participant);
+      throw err;
+    }
 
     return {
+      drawable: true,
       message: '참여 완료 하였습니다.',
-      participant: userId,
+      userId: userId,
     };
   }
 
@@ -164,9 +158,29 @@ export class EventService {
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
     });
+
     const participant = await this.participatnRepository.findOne({
       where: { user: { id: userId }, event: { id: eventId } },
     });
+
+    const winners = await this.participatnRepository.count({
+      where: {
+        event: { id: eventId },
+        gifticonIssued: true,
+      },
+    });
+
+    if (winners >= event.totalGifticons) {
+      participant.isApply = false;
+      await this.participatnRepository.save(participant);
+
+      return {
+        message: '기프티콘이 모두 소진 되었습니다.',
+        userId: userId,
+        gifticon: null,
+      };
+    }
+
     const isWinner = await this.getWinner();
 
     participant.isApply = false;
@@ -174,22 +188,27 @@ export class EventService {
 
     await this.participatnRepository.save(participant);
 
-    if (event.totalGifticons === 0) {
-      return false;
-    }
-
     if (isWinner) {
-      event.totalGifticons -= 1;
+      return {
+        message: '당첨 되었습니다!',
+        userId: userId,
+        gifticon: {
+          image: '',
+          name: '',
+        },
+      };
     }
 
-    await this.eventRepository.save(event);
-
-    return isWinner ? true : false;
+    return {
+      message: '꽝! 다음 기회에...',
+      userId: userId,
+      gifticon: null,
+    };
   }
 
   private async getWinner() {
     return new Promise((resolve) => {
-      resolve(Math.ceil(Math.random() * 10) > 8);
+      resolve(Math.ceil(Math.random() * 10) > 5);
     });
   }
 
@@ -212,6 +231,30 @@ export class EventService {
       participatedAt: new Date(),
       isApply: true,
     });
+  }
+
+  private async sendMessage({ eventId, userId }: Omit<Message, 'timestamp'>) {
+    try {
+      await this.sqsService.sendMessage(
+        { eventId, userId, timestamp: getYYYYMMDDhhmm() },
+        {
+          MessageGroupId: this.messasgeGroupId,
+          MessageAttributes: {
+            userId: {
+              DataType: 'Number',
+              StringValue: userId.toString(),
+            },
+            eventId: {
+              DataType: 'Number',
+              StringValue: eventId.toString(),
+            },
+          },
+        },
+      );
+    } catch (err) {
+      console.log(err);
+      throw err;
+    }
   }
 
   private async receiveMatchingMessage(eventId: number, userId: number) {

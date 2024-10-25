@@ -8,6 +8,12 @@ export class Gifticon extends Basic {
   @Column({ type: 'varchar', unique: true })
   imageUrl: string;
 
+  @Column({ type: 'varchar' })
+  name: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  description: string;
+
   @Column({ type: 'boolean', default: false })
   isClaimed: boolean;
 

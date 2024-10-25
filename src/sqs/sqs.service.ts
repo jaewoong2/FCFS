@@ -16,6 +16,26 @@ export class SqsService {
   });
   private queueUrl = process.env.AWS_SQS_QUEUE_URL;
 
+  createQueue() {
+    return this.sqs
+      .createQueue({
+        QueueName: 'sqs-services.fifo',
+        Attributes: {
+          FifoQueue: 'true',
+          ContentBasedDeduplication: 'true',
+        },
+      })
+      .promise();
+  }
+
+  deleteQueue() {
+    return this.sqs
+      .deleteQueue({
+        QueueUrl: this.queueUrl,
+      })
+      .promise();
+  }
+
   async sendMessage<T extends { [key: string]: any }>(
     message: T,
     options: Partial<SQS.Types.SendMessageRequest>,

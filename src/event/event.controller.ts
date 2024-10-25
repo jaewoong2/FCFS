@@ -37,8 +37,10 @@ export class EventController {
     }
   }
 
-  @Post('receive')
-  comsumeEvent() {
-    return null;
+  @Post('draw')
+  async draw(@Body() metadata: PostApplyEventDto) {
+    const result = await this.eventService.drawParticipant(metadata);
+
+    return result;
   }
 }
