@@ -23,7 +23,12 @@ import { GifticonModule } from './gifticon/gifticon.module';
     }),
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'local' ? '.env.local' : '.env',
+      envFilePath:
+        process.env.NODE_ENV === 'local'
+          ? '.env.local'
+          : process.env.NODE_ENV === 'test'
+            ? '.env.test'
+            : '.env',
       load: [awsConfig, authConfig],
     }),
     AuthModule,
@@ -44,5 +49,6 @@ import { GifticonModule } from './gifticon/gifticon.module';
       useClass: ResponseInterceptor,
     },
   ],
+  exports: [AppModule],
 })
 export class AppModule {}
