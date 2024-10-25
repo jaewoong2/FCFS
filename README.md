@@ -2,6 +2,11 @@
 
 <img width="844" alt="image" src="https://github.com/user-attachments/assets/407fa35b-cb95-4e14-90f4-82c402e068f8">
 
+<!-- 
+awslocal sqs create-queue \                        
+    --queue-name sqs-services.fifo \
+    --attributes FifoQueue=true,ContentBasedDeduplication=true -->
+
 
 ## 대규모 트래픽 처리 테스트를 위한 개발 테스트
 
