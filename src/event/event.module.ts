@@ -11,5 +11,6 @@ import { Participant } from './entities/participant.entity';
   imports: [TypeOrmModule.forFeature([Gifticon, Event, Participant])],
   controllers: [EventController],
   providers: [EventService, SqsService],
+  exports: [EventService],
 })
 export class EventModule {}

@@ -22,6 +22,10 @@ export class Gifticon extends Basic {
   event: Event;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'claimedBy' })
   claimedBy: User;
 

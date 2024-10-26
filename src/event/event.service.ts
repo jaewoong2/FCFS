@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
-import { Repository } from 'typeorm';
+import { FindOneOptions, Repository } from 'typeorm';
 import { Event } from './entities/event.entity';
 import { SqsService } from 'src/sqs/sqs.service';
 import { Participant } from './entities/participant.entity';
@@ -9,7 +9,15 @@ import { z } from 'zod';
 import { Message } from './types';
 import { getYYYYMMDDhhmm } from 'src/core/utils/date';
 import { PostApplyEventDto } from './dto/apply-event.dto';
-import { EntityNotFoundException } from 'src/core/filters/exception/service.exception';
+import {
+  AlereadyExistException,
+  AuthroizationException,
+  EntityNotFoundException,
+  ValidatationErrorException,
+} from 'src/core/filters/exception/service.exception';
+import { CreateEventDto } from './dto/create-event.dto';
+import { FindAllEventDto } from './dto/findAll-event.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
 
 // Define Zod schema for PostApplyEventDto
 const PostApplyEventSchema = z.object({
@@ -34,6 +42,179 @@ export class EventService {
     private readonly sqsService: SqsService,
   ) {
     this.messasgeGroupId = 'FCFS';
+  }
+
+  async deleteEvent(eventId: number) {
+    const event = await this.findEvent(eventId);
+
+    if (!event) {
+      throw EntityNotFoundException(`Event 가 없습니다. EventId: ${eventId}`);
+    }
+
+    return await this.eventRepository.softDelete(eventId);
+  }
+
+  async updateEvent(
+    eventId: number,
+    updateValue: UpdateEventDto | null,
+    callback?: (event: Event) => Event,
+  ): Promise<Event> {
+    const event = await this.findEvent(eventId);
+
+    // 날짜 유효성 검사: eventStartDate가 eventEndDate보다 이후일 수 없음
+    if (
+      updateValue?.eventStartDate &&
+      updateValue?.eventEndDate &&
+      new Date(updateValue?.eventStartDate) >
+        new Date(updateValue?.eventEndDate)
+    ) {
+      throw ValidatationErrorException('Start date cannot be after end date');
+    }
+
+    // 선택적 업데이트: 각 필드가 주어졌을 때만 업데이트
+    if (updateValue?.eventName) {
+      event.eventName = updateValue?.eventName;
+    }
+    if (updateValue?.eventStartDate) {
+      event.eventStartDate = updateValue?.eventStartDate;
+    }
+    if (updateValue?.eventEndDate) {
+      event.eventEndDate = updateValue?.eventEndDate;
+    }
+    if (updateValue?.maxParticipants) {
+      event.maxParticipants = updateValue?.maxParticipants;
+    }
+
+    if (updateValue?.eventDescription) {
+      event.eventDescription = updateValue?.eventDescription;
+    }
+
+    if (updateValue?.totalGifticons) {
+      event.totalGifticons = updateValue?.totalGifticons;
+    }
+
+    if (callback) {
+      const newEvent = callback(event);
+      event.eventDescription = newEvent.eventDescription;
+      event.eventName = newEvent.eventName;
+      event.eventStartDate = newEvent.eventEndDate;
+      event.maxParticipants = newEvent.maxParticipants;
+      event.totalGifticons = newEvent.totalGifticons;
+    }
+
+    // 변경사항 저장
+    return this.eventRepository.save(event);
+  }
+
+  async findEvent(
+    eventId: number,
+    eventName?: string,
+    options?: Omit<FindOneOptions<Event>, 'where'>,
+  ) {
+    const event = await this.eventRepository.findOne({
+      where: [{ id: eventId }, { eventName: eventName }],
+      ...options,
+    });
+
+    if (!event) {
+      throw EntityNotFoundException(`Event 가 없습니다. EventId: ${eventId}`);
+    }
+
+    return event;
+  }
+
+  async findAllEvent({
+    endDate,
+    startDate,
+    name,
+    description,
+    page = 1,
+    limit = 10,
+  }: FindAllEventDto) {
+    const queryBuilder = this.eventRepository.createQueryBuilder('event');
+
+    if (name) {
+      queryBuilder.andWhere('LOWER(event.eventName) LIKE LOWER(:name)', {
+        name: `%${name}%`,
+      });
+    }
+
+    if (description) {
+      queryBuilder.andWhere('event.eventDescription LIKE :description', {
+        description: `%${description}%`,
+      });
+    }
+
+    // 날짜 필터링
+    if (startDate) {
+      queryBuilder.andWhere('event.eventEndDate >= :startDate', {
+        startDate,
+      });
+    }
+    if (endDate) {
+      queryBuilder.andWhere('event.eventStartDate <= :endDate', { endDate });
+    }
+
+    // 유효성 검사: endDate가 startDate보다 앞서면 에러 발생
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      throw new BadRequestException('startDate cannot be after endDate');
+    }
+
+    // Pagination 설정
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    // 정렬: eventDate를 기준으로 오름차순
+    queryBuilder.orderBy('event.eventStartDate', 'ASC');
+
+    // 쿼리 실행
+    const [result, total] = await queryBuilder.getManyAndCount();
+
+    // 페이징된 결과 반환
+    return {
+      data: result,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
+
+  async createEvent({
+    eventEndDate,
+    eventName,
+    eventStartDate,
+    eventDescription,
+    totalGifticons,
+    maxParticipants,
+    userId,
+  }: CreateEventDto) {
+    const event = await this.eventRepository.findOne({
+      where: { eventName: `${eventName}` },
+    });
+
+    if (event) {
+      throw AlereadyExistException(`${eventName}은 이미 존재 합니다.`);
+    }
+
+    if (
+      eventStartDate &&
+      eventEndDate &&
+      new Date(eventStartDate) > new Date(eventEndDate)
+    ) {
+      throw ValidatationErrorException('startDate cannot be after endDate');
+    }
+
+    const newEvent = this.eventRepository.create({
+      eventEndDate,
+      eventName,
+      eventStartDate,
+      maxParticipants,
+      totalGifticons,
+      eventDescription,
+      user: { id: userId },
+    });
+    const result = await this.eventRepository.save(newEvent);
+
+    return result;
   }
 
   async isAvailable({ eventId, userId }: PostApplyEventDto) {
@@ -298,5 +479,19 @@ export class EventService {
     }
 
     return null;
+  }
+
+  async isOwnerOfEvent(userId: number, eventId: number) {
+    const event = await this.findEvent(eventId, null, {
+      relations: ['user'],
+      select: ['user'],
+    });
+
+    if (!event)
+      if (event?.user?.id !== userId) {
+        throw AuthroizationException('이벤트를 등록한 등록자가 아닙니다.');
+      }
+
+    return true;
   }
 }
