@@ -18,6 +18,7 @@ describe('EventController', () => {
 
     service = module.get<EventService>(EventService);
     sqs = module.get<SqsService>(SqsService);
+
     app = module.createNestApplication();
     await sqs.createQueue();
     await app.init();
@@ -67,7 +68,17 @@ describe('EventController', () => {
             .post('/api/event/draw')
             .send({ eventId, userId });
 
-          return processedResult.toJSON().text;
+          const drawResult = JSON.parse(processedResult.toJSON().text);
+
+          if (drawResult?.data?.isWinner) {
+            const result: any = await api(promise[1])
+              .post('/api/gifticon/claim')
+              .send({ eventId, userId });
+
+            return JSON.parse(result.toJSON().text).data;
+          }
+
+          return drawResult.data;
         }),
       );
 

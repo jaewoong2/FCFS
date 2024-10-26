@@ -6,11 +6,14 @@ import {
   AlereadyExistException,
   AuthroizationException,
   EntityNotFoundException,
+  ValidatationErrorException,
 } from 'src/core/filters/exception/service.exception';
 import { CreateGifticonDto } from './dto/create-gifticon.dto';
 import { FindAllGifticonDto } from './dto/find-all-gifticon.dto';
 import { UpdateGifticonDto } from './dto/update-gifticon.dto';
 import { EventService } from 'src/event/event.service';
+import { ClaimGifticonDto } from './dto/claim-gifticon.dto';
+import { Participant } from 'src/event/entities/participant.entity';
 
 export const CreateNotFoundMessage = (id?: number, name?: string) => {
   if (id) {
@@ -29,6 +32,9 @@ export class GifticonService {
   constructor(
     @InjectRepository(Gifticon)
     private readonly gifticonRepository: Repository<Gifticon>,
+
+    @InjectRepository(Participant)
+    private readonly participantRepository: Repository<Participant>,
 
     private readonly eventService: EventService,
   ) {}
@@ -168,4 +174,55 @@ export class GifticonService {
 
     return true;
   }
+
+  async claim({ eventId, userId }: ClaimGifticonDto) {
+    try {
+      const gifticon = await this.getRandomGifticon(eventId);
+      const participant = await this.participantRepository.findOne({
+        where: { user: { id: userId }, event: { id: eventId } },
+        relations: ['user'],
+      });
+
+      if (!participant || !participant.gifticonIssued) {
+        throw ValidatationErrorException(
+          '기프티콘 당첨 되지 못한 유저 입니다.',
+        );
+      }
+
+      if (!gifticon) {
+        throw EntityNotFoundException(CreateNotFoundMessage());
+      }
+
+      gifticon.isClaimed = true;
+      gifticon.claimedAt = new Date();
+      gifticon.claimedBy = participant.user;
+
+      const result = await this.gifticonRepository.save(gifticon);
+
+      await this.eventService.updateEvent(gifticon.event.id, null, (event) => {
+        event.totalGifticons = event.totalGifticons - 1;
+        return event;
+      });
+
+      return result;
+    } catch (err) {
+      return err;
+    }
+  }
+
+  async getRandomGifticon(eventId: number) {
+    const gifticons = await this.gifticonRepository.find({
+      where: { event: { id: eventId }, isClaimed: false },
+      relations: ['event'],
+    });
+
+    if (gifticons.length === 0) {
+      throw EntityNotFoundException('기프티콘이 모두 소진 되었어요..!');
+    }
+
+    return this.getRandomElement(gifticons);
+  }
+
+  getRandomElement = <T>(arr: T[]) =>
+    arr.length ? arr[Math.floor(Math.random() * arr.length)] : undefined;
 }

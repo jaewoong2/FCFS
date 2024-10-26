@@ -356,9 +356,10 @@ export class EventService {
       await this.participatnRepository.save(participant);
 
       return {
+        isWinner: false,
         message: '기프티콘이 모두 소진 되었습니다.',
-        userId: userId,
-        gifticon: null,
+        userId,
+        eventId,
       };
     }
 
@@ -371,19 +372,18 @@ export class EventService {
 
     if (isWinner) {
       return {
+        isWinner: true,
         message: '당첨 되었습니다!',
-        userId: userId,
-        gifticon: {
-          image: '',
-          name: '',
-        },
+        userId,
+        eventId,
       };
     }
 
     return {
+      isWinner: false,
       message: '꽝! 다음 기회에...',
-      userId: userId,
-      gifticon: null,
+      userId,
+      eventId,
     };
   }
 

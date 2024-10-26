@@ -14,10 +14,18 @@ import { UpdateGifticonDto } from './dto/update-gifticon.dto';
 import { CreateGifticonDto } from './dto/create-gifticon.dto';
 import { FindGifticonDto } from './dto/find-gifticon.dto';
 import { FindAllGifticonDto } from './dto/find-all-gifticon.dto';
+import { ClaimGifticonDto } from './dto/claim-gifticon.dto';
 
 @Controller('api/gifticon')
 export class GiftiConController {
   constructor(private readonly giftiConService: GifticonService) {}
+
+  @Post('claim')
+  async claim(@Body() claimGifticonDto: ClaimGifticonDto) {
+    const result = await this.giftiConService.claim(claimGifticonDto);
+
+    return result;
+  }
 
   @Delete(':gifticonId')
   async delete(
