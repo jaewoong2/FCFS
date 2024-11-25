@@ -33,16 +33,17 @@ export const ValidatationErrorException = (
   return new ServiceException(CLIENT_ERROR, message);
 };
 
-export class ServiceException extends Error {
+export class ServiceException<T = any> extends Error {
   readonly errorCode: ErrorCode;
+  readonly data: T = null;
 
-  constructor(errorCode: ErrorCode, message?: string) {
+  constructor(errorCode: ErrorCode, message?: string, data?: T) {
     if (!message) {
       message = errorCode.message;
     }
-
     super(message);
 
+    this.data = data;
     this.errorCode = errorCode;
   }
 }

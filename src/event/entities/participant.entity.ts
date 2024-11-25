@@ -28,8 +28,5 @@ export class Participant extends Basic {
   participatedAt: Date;
 
   @Column({ type: 'boolean', default: false })
-  gifticonIssued: boolean;
-
-  @Column({ type: 'boolean', default: false })
   isApply: boolean;
 }

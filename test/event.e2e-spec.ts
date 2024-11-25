@@ -3,7 +3,7 @@ import { AppModule } from 'src/app.module';
 import { EventService } from 'src/event/event.service';
 import { INestApplication } from '@nestjs/common';
 import api from 'supertest';
-import { SqsService } from 'src/sqs/sqs.service';
+import { SqsService } from 'src/aws/sqs.service';
 
 describe('EventController', () => {
   let service: EventService;
@@ -57,10 +57,6 @@ describe('EventController', () => {
           const userId = JSON.parse(text).data.userId;
 
           if ('isAvailable' in res && !res.isAvailable) {
-            return res;
-          }
-
-          if ('drawable' in res && !res.drawable) {
             return res;
           }
 

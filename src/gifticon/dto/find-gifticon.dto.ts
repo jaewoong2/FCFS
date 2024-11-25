@@ -1,8 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsString } from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 
 export class FindGifticonDto {
   @Type(() => String)
   @IsString()
   readonly name: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  readonly id: number;
 }

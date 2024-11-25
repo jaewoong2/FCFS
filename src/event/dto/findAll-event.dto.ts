@@ -1,16 +1,17 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsDate, IsOptional, IsString } from 'class-validator';
+import { PageOptionsDto } from 'src/core/types/pagination-post.dto';
 
-export class FindAllEventDto {
-  @Type(() => String)
-  @IsString()
+export class FindAllEventDto extends PageOptionsDto {
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  readonly startDate?: string;
+  readonly startDate?: Date;
 
-  @Type(() => String)
-  @IsString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  readonly endDate?: string;
+  readonly endDate?: Date;
 
   @Type(() => String)
   @IsString()
@@ -22,15 +23,13 @@ export class FindAllEventDto {
   @IsOptional()
   readonly description?: string;
 
+  @Type(() => String)
+  @IsString()
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+  readonly userName?: string;
 
+  @Type(() => String)
+  @IsString()
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(10)
-  limit?: number = 10;
+  readonly status?: 'UPCOMING' | 'ONGOING' | 'FINISHED';
 }

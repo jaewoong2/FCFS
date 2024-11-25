@@ -2,10 +2,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { User } from 'src/users/entities/user.entity';
+import { AuthProvider, User } from 'src/users/entities/user.entity';
 import { JwtPayload } from './interface/auth.interface';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import {
+  GoogleUser,
+  LoginResponse,
+  JwtPayload as JwtPayloadType,
+} from './types';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +25,7 @@ export class AuthService {
     email: string,
     fullName: string,
     avatar: string,
+    provider: AuthProvider,
   ): Promise<User> {
     try {
       const foundUser = await this.userRepository.findOne({
@@ -31,9 +37,9 @@ export class AuthService {
       const result = await this.usersService.createUser({
         email,
         userName: fullName,
-        avatar,
+        avatar: avatar ?? '',
+        provider,
       });
-      console.log(result);
 
       return result;
     } catch (error) {
@@ -42,18 +48,28 @@ export class AuthService {
     }
   }
 
-  async googleLogin(req): Promise<any> {
+  async googleLogin(
+    req: {
+      user: Partial<GoogleUser>;
+    },
+    provider: AuthProvider,
+  ): Promise<LoginResponse> {
     const { email, firstName, lastName, photo, userName } = req.user;
 
-    const fullName = userName ? userName : firstName + lastName;
+    const fullName: string = userName ?? `${firstName}${lastName}`;
 
-    const user: User = await this.findByEmailOrSave(email, fullName, photo); // 이메일로 가입된 회원을 찾고, 없다면 회원가입
+    const user: User = await this.findByEmailOrSave(
+      email,
+      fullName,
+      photo,
+      provider,
+    );
 
-    // JWT 토큰에 포함될 payload
-    const payload = {
+    const payload: JwtPayloadType = {
       id: user.id,
       email: user.email,
       userName: user.userName,
+      provider,
     };
 
     return {
@@ -74,7 +90,12 @@ export class AuthService {
     user.email = email;
     const result = await this.usersService.createUser(user);
 
-    const payload = { userName: user.userName, id: user.id, email: user.email };
+    const payload = {
+      userName: user.userName,
+      id: user.id,
+      email: user.email,
+      provider: result.provider,
+    };
 
     return {
       ...result,
@@ -93,7 +114,11 @@ export class AuthService {
   }
 
   async login(user: User) {
-    const payload = { userName: user.userName, id: user.id };
+    const payload = {
+      userName: user.userName,
+      id: user.id,
+      provider: user.provider,
+    };
     return {
       access_token: this.jwtService.sign(payload),
     };

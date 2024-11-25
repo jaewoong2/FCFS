@@ -2,10 +2,12 @@
 class ErrorCodeVo {
   readonly status: string | number;
   readonly message: string;
+  readonly data: null;
 
   constructor(status: string | number, message: string) {
     this.status = status;
     this.message = message;
+    this.data = null;
   }
 }
 

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
@@ -14,6 +14,8 @@ import { TypeOrmConfigService } from './core/config/typeorm.config';
 import { EventModule } from './event/event.module';
 import { GifticonRequestLogModule } from './gifticon-request-log/gifticon-request-log.module';
 import { GifticonModule } from './gifticon/gifticon.module';
+import { LoggerMiddleware } from './middlewares/logger.middleware';
+import { ImagesModule } from './images/images.module';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { GifticonModule } from './gifticon/gifticon.module';
     GifticonModule,
     EventModule,
     GifticonRequestLogModule,
+    ImagesModule,
   ],
   controllers: [AppController],
   providers: [
@@ -51,4 +54,8 @@ import { GifticonModule } from './gifticon/gifticon.module';
   ],
   exports: [AppModule],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): any {
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+  }
+}

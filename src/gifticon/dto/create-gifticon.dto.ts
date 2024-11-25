@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { GifticonCategory } from '../enums/gifticon-category.enum';
 
 export class CreateGifticonDto {
   @Type(() => String)
@@ -14,11 +15,15 @@ export class CreateGifticonDto {
   @IsString()
   readonly imageUrl: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  readonly eventId: number;
+  @Type(() => String)
+  @IsString()
+  @IsOptional()
+  readonly message?: string;
+
+  @IsEnum(GifticonCategory)
+  category: GifticonCategory;
 
   @Type(() => Number)
   @IsNumber()
-  readonly userId: number;
+  readonly eventId: number;
 }

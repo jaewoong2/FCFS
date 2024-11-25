@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { AuthProvider, User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { generateRandomNickname } from 'src/core/utils/create-nickname';
 
@@ -16,7 +16,6 @@ export class UsersService {
   async findById(userId: number) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['likes'],
     });
 
     return user;
@@ -42,6 +41,7 @@ export class UsersService {
     newUser.avatar = user.avatar;
     newUser.userName = await this.createNickname();
     newUser.email = user.email;
+    newUser.provider = user.provider ?? AuthProvider.EMAIL;
 
     return await this.userRepository.manager.transaction(
       async (transactionalEntityManager) => {

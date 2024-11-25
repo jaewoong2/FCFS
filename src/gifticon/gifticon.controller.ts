@@ -8,6 +8,8 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { GifticonService } from './gifticon.service';
 import { UpdateGifticonDto } from './dto/update-gifticon.dto';
@@ -15,6 +17,8 @@ import { CreateGifticonDto } from './dto/create-gifticon.dto';
 import { FindGifticonDto } from './dto/find-gifticon.dto';
 import { FindAllGifticonDto } from './dto/find-all-gifticon.dto';
 import { ClaimGifticonDto } from './dto/claim-gifticon.dto';
+import { JwtAuthGuard } from 'src/auth/guard/auth.guard';
+import { User } from 'src/users/entities/user.entity';
 
 @Controller('api/gifticon')
 export class GiftiConController {
@@ -28,12 +32,13 @@ export class GiftiConController {
   }
 
   @Delete(':gifticonId')
+  @UseGuards(JwtAuthGuard)
   async delete(
+    @Req() { user }: { user: User },
     @Param('gifticonId', ParseIntPipe) gifticonId: number,
-    @Body() deleteGifticonDto: UpdateGifticonDto,
   ) {
     const isOwnerOfGifticon = await this.giftiConService.isOwnerOfGifticon(
-      deleteGifticonDto.userId,
+      user.id,
       gifticonId,
     );
 
@@ -44,12 +49,14 @@ export class GiftiConController {
   }
 
   @Patch(':gifticonId')
+  @UseGuards(JwtAuthGuard)
   async update(
+    @Req() { user }: { user: User },
     @Param('gifticonId', ParseIntPipe) gifticonId: number,
     @Body() updateGifticonDto: UpdateGifticonDto,
   ) {
     const isOwnerOfGifticon = await this.giftiConService.isOwnerOfGifticon(
-      updateGifticonDto.userId,
+      user.id,
       gifticonId,
     );
 
@@ -64,17 +71,20 @@ export class GiftiConController {
   }
 
   @Post()
-  async create(@Body() body: CreateGifticonDto) {
-    const result = await this.giftiConService.create(body);
+  @UseGuards(JwtAuthGuard)
+  async create(
+    @Req() { user }: { user: User },
+    @Body() body: CreateGifticonDto,
+  ) {
+    const result = await this.giftiConService.create(user.id, { ...body });
     return result;
   }
 
-  @Get(':giftiConId')
-  async find(
-    @Param('giftiConId', ParseIntPipe) giftiConId: number,
-    @Query() query?: FindGifticonDto,
-  ) {
-    return this.giftiConService.find(giftiConId, query?.name);
+  @Get('find')
+  async find(@Query() query?: FindGifticonDto) {
+    const result = await this.giftiConService.find(query?.id, query?.name);
+
+    return result;
   }
 
   @Get()

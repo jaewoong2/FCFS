@@ -32,13 +32,13 @@ function attachPipes(app: INestApplication) {
 
   app.enableCors({
     origin: [
-      // '*',
       'https://noting.prlc.kr',
       'http://localhost:3000',
       'http://localhost:5173',
       'chrome-extension://*',
     ],
     credentials: true,
+    methods: ['*'],
     exposedHeaders: ['*'], // * 사용할 헤더 추가.
     allowedHeaders: ['*'],
   });

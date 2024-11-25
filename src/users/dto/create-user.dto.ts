@@ -1,5 +1,6 @@
 // src/users/dto/create-user.dto.ts
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+import { AuthProvider } from '../entities/user.entity';
 
 export class CreateUserDto {
   @IsString()
@@ -15,4 +16,8 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   email: string;
+
+  @IsEnum(AuthProvider)
+  @IsOptional()
+  provider: AuthProvider;
 }

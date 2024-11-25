@@ -1,10 +1,17 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNumber, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsDate,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateEventDto {
   @Type(() => Number)
   @IsNumber()
-  readonly userId: number;
+  @IsOptional()
+  readonly userId?: number;
 
   @Type(() => Number)
   @IsNumber()
@@ -18,6 +25,11 @@ export class CreateEventDto {
   @IsString()
   readonly eventName: string;
 
+  @Type(() => Array)
+  @IsArray()
+  @IsOptional()
+  readonly images: string[];
+
   @Type(() => String)
   @IsString()
   readonly eventDescription: string;
@@ -29,4 +41,8 @@ export class CreateEventDto {
   @Type(() => Date)
   @IsDate()
   readonly eventEndDate: Date;
+
+  @Type(() => Number)
+  @IsNumber()
+  repetition: number;
 }

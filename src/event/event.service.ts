@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
-import { FindOneOptions, Repository } from 'typeorm';
+import {
+  EntityManager,
+  FindOneOptions,
+  In,
+  Not,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { Event } from './entities/event.entity';
-import { SqsService } from 'src/sqs/sqs.service';
+import { SqsService } from 'src/aws/sqs.service';
 import { Participant } from './entities/participant.entity';
 import { z } from 'zod';
 import { Message } from './types';
@@ -18,6 +25,17 @@ import {
 import { CreateEventDto } from './dto/create-event.dto';
 import { FindAllEventDto } from './dto/findAll-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { PageOptionsDto } from 'src/core/types/pagination-post.dto';
+import { PageDto } from 'src/core/types/page.dto';
+import { PageMetaDto } from 'src/core/types/page-meta.dto';
+import { plainToInstance } from 'class-transformer';
+import { GetEventResponseDto } from './dto/findAll-event-response.dto';
+import { GetStatusEventDto } from './dto/get-status-event.dto';
+import { v4 } from 'uuid';
+import { User } from 'src/users/entities/user.entity';
+import { FindEventDto } from './dto/find-event.dto';
+import { Image } from 'src/images/entities/image.entity';
+import { GifticonCategory } from 'src/gifticon/enums/gifticon-category.enum';
 
 // Define Zod schema for PostApplyEventDto
 const PostApplyEventSchema = z.object({
@@ -39,27 +57,40 @@ export class EventService {
     @InjectRepository(Participant)
     private readonly participatnRepository: Repository<Participant>,
 
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
+    @InjectRepository(Image)
+    private readonly imageRepository: Repository<Image>,
+
     private readonly sqsService: SqsService,
   ) {
     this.messasgeGroupId = 'FCFS';
   }
 
   async deleteEvent(eventId: number) {
-    const event = await this.findEvent(eventId);
+    const event = await this.findEvent({ eventId });
 
     if (!event) {
       throw EntityNotFoundException(`Event 가 없습니다. EventId: ${eventId}`);
     }
 
-    return await this.eventRepository.softDelete(eventId);
+    const result = await this.eventRepository.softRemove(event);
+
+    return {
+      message: '이벤트 삭제 성공 했습니다.',
+      eventId: event.id,
+      ...result,
+    };
   }
 
   async updateEvent(
     eventId: number,
     updateValue: UpdateEventDto | null,
     callback?: (event: Event) => Event,
+    manager?: EntityManager,
   ): Promise<Event> {
-    const event = await this.findEvent(eventId);
+    const event = await this.findEvent({ eventId });
 
     // 날짜 유효성 검사: eventStartDate가 eventEndDate보다 이후일 수 없음
     if (
@@ -93,31 +124,62 @@ export class EventService {
       event.totalGifticons = updateValue?.totalGifticons;
     }
 
+    if (updateValue?.images) {
+      const image = await this.imageRepository.find({
+        where: { imageUrl: In(updateValue?.images) },
+      });
+
+      image.forEach(async (img) => {
+        img.event = event;
+
+        const repository = manager
+          ? manager.getRepository(Image)
+          : this.imageRepository;
+
+        await repository.save(img);
+      });
+    }
+
     if (callback) {
       const newEvent = callback(event);
       event.eventDescription = newEvent.eventDescription;
       event.eventName = newEvent.eventName;
-      event.eventStartDate = newEvent.eventEndDate;
+      event.eventStartDate = newEvent.eventStartDate;
+      event.eventEndDate = newEvent.eventEndDate;
       event.maxParticipants = newEvent.maxParticipants;
       event.totalGifticons = newEvent.totalGifticons;
     }
 
+    const repository = manager
+      ? manager.getRepository(Event)
+      : this.eventRepository;
+
     // 변경사항 저장
-    return this.eventRepository.save(event);
+    return repository.save(event);
   }
 
   async findEvent(
-    eventId: number,
-    eventName?: string,
+    query: FindEventDto,
     options?: Omit<FindOneOptions<Event>, 'where'>,
   ) {
     const event = await this.eventRepository.findOne({
-      where: [{ id: eventId }, { eventName: eventName }],
+      where: [
+        { id: query.eventId },
+        { eventName: decodeURIComponent(query.eventName) },
+        { user: { userName: decodeURIComponent(query.userName) } },
+      ],
+      relations: [
+        'participants',
+        'user',
+        'gifticons',
+        'thumbnails',
+        'gifticons.image',
+      ],
       ...options,
     });
 
     if (!event) {
-      throw EntityNotFoundException(`Event 가 없습니다. EventId: ${eventId}`);
+      throw EntityNotFoundException(`Event 가 없습니다.`);
     }
 
     return event;
@@ -128,8 +190,6 @@ export class EventService {
     startDate,
     name,
     description,
-    page = 1,
-    limit = 10,
   }: FindAllEventDto) {
     const queryBuilder = this.eventRepository.createQueryBuilder('event');
 
@@ -160,22 +220,62 @@ export class EventService {
       throw new BadRequestException('startDate cannot be after endDate');
     }
 
-    // Pagination 설정
-    queryBuilder.skip((page - 1) * limit).take(limit);
-
-    // 정렬: eventDate를 기준으로 오름차순
     queryBuilder.orderBy('event.eventStartDate', 'ASC');
 
-    // 쿼리 실행
     const [result, total] = await queryBuilder.getManyAndCount();
 
-    // 페이징된 결과 반환
     return {
       data: result,
       total,
-      page,
-      lastPage: Math.ceil(total / limit),
     };
+  }
+
+  async paginate(
+    pageOptionsDto: Partial<PageOptionsDto>,
+    attach?: <T>(qb: SelectQueryBuilder<T>) => SelectQueryBuilder<T>,
+  ): Promise<PageDto<GetEventResponseDto>> {
+    const qb = this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.thumbnails', 'thumbnails')
+      .leftJoinAndSelect('event.user', 'user')
+      .leftJoinAndSelect('event.gifticons', 'gifticons')
+      .leftJoinAndSelect(
+        'event.participants',
+        'participants',
+        'participants.isApply = :isApply',
+        { isApply: true },
+      );
+
+    attach(qb)
+      .orderBy('event.createdAt', 'DESC')
+      .take(pageOptionsDto.take)
+      .skip(pageOptionsDto.skip);
+
+    // 결과를 가져오기
+    const [events, total] = await qb.getManyAndCount();
+
+    const pageMetaDto = new PageMetaDto({
+      pageOptionsDto: {
+        skip: pageOptionsDto.skip,
+        page: pageOptionsDto.page,
+        take: pageOptionsDto.take,
+      },
+      total,
+    });
+
+    const last_page = pageMetaDto.last_page;
+
+    const result = plainToInstance(GetEventResponseDto, events, {});
+
+    if (result.length === 0) {
+      return new PageDto(result, pageMetaDto);
+    }
+
+    if (last_page >= pageMetaDto.page) {
+      return new PageDto(result, pageMetaDto);
+    } else {
+      throw EntityNotFoundException('해당 페이지는 존재하지 않습니다');
+    }
   }
 
   async createEvent({
@@ -185,10 +285,15 @@ export class EventService {
     eventDescription,
     totalGifticons,
     maxParticipants,
+    images,
     userId,
+    repetition,
   }: CreateEventDto) {
     const event = await this.eventRepository.findOne({
       where: { eventName: `${eventName}` },
+    });
+    const image = await this.imageRepository.find({
+      where: { imageUrl: In(images) },
     });
 
     if (event) {
@@ -210,19 +315,27 @@ export class EventService {
       maxParticipants,
       totalGifticons,
       eventDescription,
+      repetition,
       user: { id: userId },
     });
+
     const result = await this.eventRepository.save(newEvent);
 
-    return result;
+    await Promise.all(
+      image.map(async (img) => {
+        img.event = result;
+        return this.imageRepository.save(img);
+      }),
+    );
+
+    return { message: '이벤트생성 하였습니다', eventId: result.id };
   }
 
   async isAvailable({ eventId, userId }: PostApplyEventDto) {
+    await this.findEvent({ eventId });
+
     const participant = await this.participatnRepository.findOne({
-      where: [
-        { event: { id: eventId }, user: { id: userId }, isApply: true },
-        { event: { id: eventId }, user: { id: userId }, gifticonIssued: true },
-      ],
+      where: [{ event: { id: eventId }, user: { id: userId }, isApply: true }],
       select: ['id'],
     });
 
@@ -251,25 +364,87 @@ export class EventService {
     return { participants, count };
   }
 
-  async getStatus(eventId: number) {
+  async getStatus({ eventId, userId }: GetStatusEventDto) {
     try {
       const event = await this.eventRepository.findOne({
         where: { id: eventId },
+        relations: ['gifticons'],
+      });
+      const user = await this.userRepository.findOne({
+        where: { id: userId, claimedGifticons: { event: { id: eventId } } },
+        relations: { claimedGifticons: true },
       });
 
+      const totalGifticonsWithOutLose = event.gifticons.filter(
+        ({ category }) => category !== 'LOSE',
+      );
+
+      const timeStatus = this.getTimeStatus(
+        new Date(),
+        event.eventStartDate,
+        event.eventEndDate,
+      );
+
+      // 'ended' 상태인 경우 즉시 반환
+      if (timeStatus === 'ended') {
+        return {
+          isAvailable: false,
+          message: '이벤트가 종료되었습니다.',
+        };
+      }
+
+      // 'upcoming' 상태인 경우, 추가 가용성 체크 필요 없음
+      if (timeStatus === 'upcoming') {
+        return {
+          isAvailable: false,
+          message: '이벤트가 곧 시작됩니다.',
+        };
+      }
+
       const claimed = await this.gifitconRepository.count({
-        where: [{ event: { id: eventId }, isClaimed: true }],
+        where: [
+          {
+            event: { id: eventId },
+            isClaimed: true,
+            category: Not(GifticonCategory.LOSE),
+          },
+        ],
       });
 
       const participants = await this.findEventsParticipants(event.id);
+      const participant = await this.participatnRepository.findOne({
+        where: { user: { id: userId }, event: { id: eventId }, isApply: true },
+      });
 
       if (
-        event.totalGifticons <= claimed ||
-        event.maxParticipants <= participants.count
+        event.repetition <=
+        user?.claimedGifticons?.filter(({ category }) => category !== 'LOSE')
+          .length
       ) {
         return {
           isAvailable: false,
-          message: '이벤트 참여 종료 되었습니다.',
+          message: '당첨 완료!',
+        };
+      }
+
+      if (participant) {
+        return {
+          isAvailable: false,
+          message: '이미 참여한 이벤트 입니다.',
+        };
+      }
+
+      if (totalGifticonsWithOutLose.length <= claimed) {
+        return {
+          isAvailable: false,
+          message: '준비된 기프티콘이 소진되었습니다.',
+        };
+      }
+
+      if (event.maxParticipants <= participants.count) {
+        return {
+          isAvailable: false,
+          message: '참여자가 많아요 조금만 기다려주세요.',
         };
       }
 
@@ -278,6 +453,7 @@ export class EventService {
         message: '이벤트 참여 가능 합니다.',
       };
     } catch (err) {
+      console.log(err);
       return {
         err: err,
         isAvailable: false,
@@ -308,7 +484,7 @@ export class EventService {
 
     if (maxParticipants <= participantsCount[1]) {
       return {
-        drawable: false,
+        isAvailable: false,
         message: '현재 참여자가 몰려 있습니다, 조금 후에 참여 해주세요.',
         userId: userId,
       };
@@ -329,7 +505,7 @@ export class EventService {
     }
 
     return {
-      drawable: true,
+      isAvailable: true,
       message: '참여 완료 하였습니다.',
       userId: userId,
     };
@@ -340,14 +516,21 @@ export class EventService {
       where: { id: eventId },
     });
 
+    if (!event) {
+      throw EntityNotFoundException('이벤트가 존재 하지 않습니다');
+    }
+
     const participant = await this.participatnRepository.findOne({
-      where: { user: { id: userId }, event: { id: eventId } },
+      where: { user: { id: userId }, event: { id: eventId }, isApply: true },
     });
+
+    if (!participant) {
+      throw EntityNotFoundException('해당 이벤트에 참여하지 않은 유저 입니다.');
+    }
 
     const winners = await this.participatnRepository.count({
       where: {
         event: { id: eventId },
-        gifticonIssued: true,
       },
     });
 
@@ -363,19 +546,22 @@ export class EventService {
       };
     }
 
-    const isWinner = await this.getWinner();
+    const gifticon = await this.gifitconRepository
+      .createQueryBuilder()
+      .orderBy('RANDOM()') // PostgreSQL에서 지원하는 랜덤 정렬 함수
+      .getOne(); // 하나의 데이터만 반환
 
     participant.isApply = false;
-    participant.gifticonIssued = isWinner ? true : false;
 
     await this.participatnRepository.save(participant);
 
-    if (isWinner) {
+    if (gifticon.category !== 'LOSE') {
       return {
         isWinner: true,
         message: '당첨 되었습니다!',
         userId,
         eventId,
+        gifticon,
       };
     }
 
@@ -384,13 +570,8 @@ export class EventService {
       message: '꽝! 다음 기회에...',
       userId,
       eventId,
+      gifticon,
     };
-  }
-
-  private async getWinner() {
-    return new Promise((resolve) => {
-      resolve(Math.ceil(Math.random() * 10) > 5);
-    });
   }
 
   private async findOrCreateParticipantNoTransaction(
@@ -408,7 +589,6 @@ export class EventService {
     return this.participatnRepository.create({
       event: { id: eventId },
       user: { id: userId },
-      gifticonIssued: false,
       participatedAt: new Date(),
       isApply: true,
     });
@@ -417,7 +597,7 @@ export class EventService {
   private async sendMessage({ eventId, userId }: Omit<Message, 'timestamp'>) {
     try {
       await this.sqsService.sendMessage(
-        { eventId, userId, timestamp: getYYYYMMDDhhmm() },
+        { eventId, userId, timestamp: `${getYYYYMMDDhhmm()}--${v4()}` },
         {
           MessageGroupId: this.messasgeGroupId,
           MessageAttributes: {
@@ -449,6 +629,8 @@ export class EventService {
         VisibilityTimeout: 0,
         WaitTimeSeconds: 10,
       });
+
+      console.log(result);
 
       if (!result) {
         break;
@@ -482,10 +664,13 @@ export class EventService {
   }
 
   async isOwnerOfEvent(userId: number, eventId: number) {
-    const event = await this.findEvent(eventId, null, {
-      relations: ['user'],
-      select: ['user'],
-    });
+    const event = await this.findEvent(
+      { eventId },
+      {
+        relations: ['user'],
+        select: ['user'],
+      },
+    );
 
     if (!event)
       if (event?.user?.id !== userId) {
@@ -493,5 +678,15 @@ export class EventService {
       }
 
     return true;
+  }
+
+  private getTimeStatus(now: Date, startDate: Date, endDate: Date) {
+    if (now < startDate) {
+      return 'upcoming';
+    } else if (now >= startDate && now <= endDate) {
+      return 'ongoing';
+    } else {
+      return 'ended';
+    }
   }
 }

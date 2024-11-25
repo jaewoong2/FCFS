@@ -1,8 +1,19 @@
 import { Type } from 'class-transformer';
-import { IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class FindEventDto {
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  readonly eventId?: number;
+
   @Type(() => String)
   @IsString()
-  readonly eventName: string;
+  @IsOptional()
+  readonly eventName?: string;
+
+  @Type(() => String)
+  @IsString()
+  @IsOptional()
+  readonly userName?: string;
 }
