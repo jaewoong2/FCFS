@@ -1,5 +1,18 @@
 version: '3.8'
 services:
+  awslocal:
+    image: 'localstack/localstack'
+    container_name: 'localstack'
+    environment:
+      - SERVICES=sqs
+      - DEFAULT_REGION=ap-northeast-2
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - AWS_ACCESS_KEY_ID=qwer
+      - AWS_SECRET_ACCESS_KEY=1234
+      - AWS_DEFAULT_REGION=ap-northeast-2
+    ports:
+      - '4566:4566'
   gpt-archive:
     platform: linux/amd64
     image: 849441246713.dkr.ecr.ap-northeast-2.amazonaws.com/fcfs:latest

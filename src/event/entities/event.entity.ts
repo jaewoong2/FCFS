@@ -4,6 +4,7 @@ import { Entity, Column, ManyToOne, OneToMany, Index } from 'typeorm';
 import { Participant } from './participant.entity';
 import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
 import { Image } from 'src/images/entities/image.entity';
+import { Block } from '../types';
 
 @Index('unique_index', ['eventName'], {
   where: 'deleted_at IS NULL',
@@ -56,4 +57,7 @@ export class Event extends Basic {
     cascade: ['soft-remove', 'recover'],
   })
   thumbnails: Image[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  blocks: Block[];
 }

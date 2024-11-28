@@ -124,6 +124,10 @@ export class EventService {
       event.totalGifticons = updateValue?.totalGifticons;
     }
 
+    if (updateValue?.blocks) {
+      event.blocks = updateValue.blocks;
+    }
+
     if (updateValue?.images) {
       const image = await this.imageRepository.find({
         where: { imageUrl: In(updateValue?.images) },
@@ -288,6 +292,7 @@ export class EventService {
     images,
     userId,
     repetition,
+    blocks,
   }: CreateEventDto) {
     const event = await this.eventRepository.findOne({
       where: { eventName: `${eventName}` },
@@ -317,6 +322,7 @@ export class EventService {
       eventDescription,
       repetition,
       user: { id: userId },
+      blocks,
     });
 
     const result = await this.eventRepository.save(newEvent);
@@ -596,6 +602,9 @@ export class EventService {
 
   private async sendMessage({ eventId, userId }: Omit<Message, 'timestamp'>) {
     try {
+      // timestamp 를 prameter 값으로 넘긴 이유
+      // Queue 에서는 같은 파라미터 값 이면 중복 처리를 하기 때문에,
+      // Queue 에 값을 넣지 않음 따라서, 중복 처리를 위해서 timestamp 를 uuid와 함께 넣었음.
       await this.sqsService.sendMessage(
         { eventId, userId, timestamp: `${getYYYYMMDDhhmm()}--${v4()}` },
         {

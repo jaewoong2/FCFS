@@ -2,10 +2,12 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDate,
+  IsJSON,
   IsNumber,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { Block } from '../types';
 
 export class CreateEventDto {
   @Type(() => Number)
@@ -45,4 +47,8 @@ export class CreateEventDto {
   @Type(() => Number)
   @IsNumber()
   repetition: number;
+
+  @IsJSON()
+  @IsOptional()
+  blocks: Block[];
 }

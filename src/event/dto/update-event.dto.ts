@@ -5,7 +5,9 @@ import {
   IsString,
   IsArray,
   IsDate,
+  IsJSON,
 } from 'class-validator';
+import { Block } from '../types';
 
 export class UpdateEventDto {
   @Type(() => Number)
@@ -50,4 +52,8 @@ export class UpdateEventDto {
   @Type(() => Number)
   @IsNumber()
   repetition: number;
+
+  @IsJSON()
+  @IsOptional()
+  blocks: Block[];
 }
