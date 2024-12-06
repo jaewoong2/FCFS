@@ -91,7 +91,7 @@ export class EventController {
   async create(@Req() request: { user: User }, @Body() body: CreateEventDto) {
     const result = await this.eventService.createEvent({
       ...body,
-      userId: request.user.id,
+      userName: request.user.userName,
     });
     return result;
   }

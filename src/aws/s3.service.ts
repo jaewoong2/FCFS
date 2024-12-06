@@ -24,6 +24,6 @@ export class S3Service {
     };
 
     await this.s3.upload(params).promise();
-    return `https://d3t7exr31xs1l7.cloudfront.net/${key}`; // 업로드된 파일의 URL 반환
+    return `https://images.bamtoly.com/${key}`; // 업로드된 파일의 URL 반환
   }
 }

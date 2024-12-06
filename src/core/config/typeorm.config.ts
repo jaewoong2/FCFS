@@ -20,6 +20,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
           : ['dist/**/**/*.entity.{ts,js}'],
       schema: this.configService.get<string>('POSTGRES_SCHEMA') ?? null,
       synchronize: true,
+      timezone: '+09:00',
     } as const;
 
     return result;

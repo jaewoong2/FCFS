@@ -1,7 +1,8 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { PageOptionsDto } from 'src/core/types/pagination-post.dto';
 
-export class FindAllGifticonDto {
+export class FindAllGifticonDto extends PageOptionsDto {
   @Type(() => String)
   @IsString()
   @IsOptional()
@@ -16,6 +17,16 @@ export class FindAllGifticonDto {
   @IsNumber()
   @IsOptional()
   readonly userId?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  readonly claimedBy?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  readonly eventId?: number;
 
   @IsOptional()
   @Type(() => Number)

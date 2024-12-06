@@ -2,9 +2,11 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
 import {
+  DataSource,
   EntityManager,
   FindOneOptions,
   In,
+  MoreThan,
   Not,
   Repository,
   SelectQueryBuilder,
@@ -55,7 +57,7 @@ export class EventService {
     private readonly eventRepository: Repository<Event>,
 
     @InjectRepository(Participant)
-    private readonly participatnRepository: Repository<Participant>,
+    private readonly participantsRepository: Repository<Participant>,
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -64,8 +66,10 @@ export class EventService {
     private readonly imageRepository: Repository<Image>,
 
     private readonly sqsService: SqsService,
+
+    private readonly dataSource: DataSource,
   ) {
-    this.messasgeGroupId = 'FCFS';
+    this.messasgeGroupId = 'Bamtoly';
   }
 
   async deleteEvent(eventId: number) {
@@ -126,6 +130,10 @@ export class EventService {
 
     if (updateValue?.blocks) {
       event.blocks = updateValue.blocks;
+    }
+
+    if (updateValue?.repetition) {
+      event.repetition = updateValue.repetition;
     }
 
     if (updateValue?.images) {
@@ -290,16 +298,23 @@ export class EventService {
     totalGifticons,
     maxParticipants,
     images,
-    userId,
+    userName,
     repetition,
     blocks,
   }: CreateEventDto) {
+    const user = await this.userRepository.findOne({
+      where: { userName: userName },
+    });
     const event = await this.eventRepository.findOne({
       where: { eventName: `${eventName}` },
     });
     const image = await this.imageRepository.find({
       where: { imageUrl: In(images) },
     });
+
+    if (!user) {
+      throw EntityNotFoundException(`${userName} 가 없습니다.`);
+    }
 
     if (event) {
       throw AlereadyExistException(`${eventName}은 이미 존재 합니다.`);
@@ -321,7 +336,7 @@ export class EventService {
       totalGifticons,
       eventDescription,
       repetition,
-      user: { id: userId },
+      user: { id: user.id },
       blocks,
     });
 
@@ -340,8 +355,15 @@ export class EventService {
   async isAvailable({ eventId, userId }: PostApplyEventDto) {
     await this.findEvent({ eventId });
 
-    const participant = await this.participatnRepository.findOne({
-      where: [{ event: { id: eventId }, user: { id: userId }, isApply: true }],
+    const participant = await this.participantsRepository.findOne({
+      where: [
+        {
+          event: { id: eventId },
+          user: { id: userId },
+          isApply: true,
+          expiresAt: MoreThan(new Date()),
+        },
+      ],
       select: ['id'],
     });
 
@@ -355,17 +377,20 @@ export class EventService {
 
     return {
       isAvailable: true,
-      message: '이벤트 참여가 가능 합니다.',
+      message: '이벤트 참여 하기',
       userId,
     };
   }
 
   async findEventsParticipants(eventId: number) {
-    const [participants, count] = await this.participatnRepository.findAndCount(
-      {
-        where: { event: { id: eventId }, isApply: true },
-      },
-    );
+    const [participants, count] =
+      await this.participantsRepository.findAndCount({
+        where: {
+          event: { id: eventId },
+          isApply: true,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
 
     return { participants, count };
   }
@@ -418,8 +443,13 @@ export class EventService {
       });
 
       const participants = await this.findEventsParticipants(event.id);
-      const participant = await this.participatnRepository.findOne({
-        where: { user: { id: userId }, event: { id: eventId }, isApply: true },
+      const participant = await this.participantsRepository.findOne({
+        where: {
+          user: { id: userId },
+          event: { id: eventId },
+          isApply: true,
+          expiresAt: MoreThan(new Date()),
+        },
       });
 
       if (
@@ -456,7 +486,7 @@ export class EventService {
 
       return {
         isAvailable: true,
-        message: '이벤트 참여 가능 합니다.',
+        message: '이벤트 참여 하기',
       };
     } catch (err) {
       console.log(err);
@@ -479,8 +509,12 @@ export class EventService {
 
     await this.sqsService.deleteMessage(receiveResult.ReceiptHandle);
 
-    const participantsCount = await this.participatnRepository.findAndCount({
-      where: { event: { id: eventId }, isApply: true },
+    const participantsCount = await this.participantsRepository.findAndCount({
+      where: {
+        event: { id: eventId },
+        isApply: true,
+        expiresAt: MoreThan(new Date()),
+      },
     });
 
     const { maxParticipants } = await this.eventRepository.findOne({
@@ -503,10 +537,10 @@ export class EventService {
 
     try {
       participant.isApply = true;
-      await this.participatnRepository.save(participant);
+      await this.participantsRepository.save(participant);
     } catch (err) {
       participant.isApply = false;
-      await this.participatnRepository.save(participant);
+      await this.participantsRepository.save(participant);
       throw err;
     }
 
@@ -526,23 +560,29 @@ export class EventService {
       throw EntityNotFoundException('이벤트가 존재 하지 않습니다');
     }
 
-    const participant = await this.participatnRepository.findOne({
-      where: { user: { id: userId }, event: { id: eventId }, isApply: true },
+    const participant = await this.participantsRepository.findOne({
+      where: {
+        user: { id: userId },
+        event: { id: eventId },
+        isApply: true,
+        expiresAt: MoreThan(new Date()),
+      },
     });
 
     if (!participant) {
       throw EntityNotFoundException('해당 이벤트에 참여하지 않은 유저 입니다.');
     }
 
-    const winners = await this.participatnRepository.count({
+    const winners = await this.participantsRepository.count({
       where: {
         event: { id: eventId },
+        expiresAt: MoreThan(new Date()),
       },
     });
 
     if (winners >= event.totalGifticons) {
       participant.isApply = false;
-      await this.participatnRepository.save(participant);
+      await this.participantsRepository.save(participant);
 
       return {
         isWinner: false,
@@ -559,7 +599,7 @@ export class EventService {
 
     participant.isApply = false;
 
-    await this.participatnRepository.save(participant);
+    await this.participantsRepository.save(participant);
 
     if (gifticon.category !== 'LOSE') {
       return {
@@ -584,20 +624,68 @@ export class EventService {
     eventId: number,
     userId: number,
   ) {
-    const participant = await this.participatnRepository.findOne({
-      where: { user: { id: userId }, event: { id: eventId } },
+    const participant = await this.participantsRepository.findOne({
+      where: {
+        user: { id: userId },
+        event: { id: eventId },
+        expiresAt: MoreThan(new Date()),
+      },
     });
 
     if (participant) {
       return participant;
     }
 
-    return this.participatnRepository.create({
+    return this.participantsRepository.create({
       event: { id: eventId },
       user: { id: userId },
       participatedAt: new Date(),
       isApply: true,
     });
+  }
+
+  private async findOrCreateParticipantWithTransaction(
+    eventId: number,
+    userId: number,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    // Use the queryRunner's manager to find the participant
+
+    try {
+      const participant = await queryRunner.manager.findOne(Participant, {
+        where: {
+          user: { id: userId },
+          event: { id: eventId },
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (participant) {
+        return participant;
+      }
+
+      // Create a new participant entity and save it within the transaction
+      const newParticipant = queryRunner.manager.create(Participant, {
+        event: { id: eventId },
+        user: { id: userId },
+        participatedAt: new Date(),
+        isApply: true,
+      });
+
+      const result = queryRunner.manager.save(newParticipant);
+
+      await queryRunner.commitTransaction();
+
+      return result;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   private async sendMessage({ eventId, userId }: Omit<Message, 'timestamp'>) {
@@ -608,7 +696,7 @@ export class EventService {
       await this.sqsService.sendMessage(
         { eventId, userId, timestamp: `${getYYYYMMDDhhmm()}--${v4()}` },
         {
-          MessageGroupId: this.messasgeGroupId,
+          MessageGroupId: `${this.messasgeGroupId}-${eventId}`,
           MessageAttributes: {
             userId: {
               DataType: 'Number',
@@ -635,11 +723,9 @@ export class EventService {
     while (Date.now() < endTime) {
       const result = await this.sqsService.receiveMessage({
         MaxNumberOfMessages: 1,
-        VisibilityTimeout: 0,
+        VisibilityTimeout: 10,
         WaitTimeSeconds: 10,
       });
-
-      console.log(result);
 
       if (!result) {
         break;

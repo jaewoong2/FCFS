@@ -41,7 +41,11 @@ export class AuthService {
         provider,
       });
 
-      return result;
+      const user = await this.userRepository.findOne({
+        where: { email: result.email },
+      });
+
+      return user;
     } catch (error) {
       console.error(error);
       throw new Error('사용자를 찾거나 생성하는데 실패하였습니다');

@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategy/auth.strategy';
 import { GoogleStrategy } from './strategy/google.strategy';
 import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { KakaoStrategy } from './strategy/kakao.strategy';
 
 @Module({
   imports: [
@@ -29,6 +30,12 @@ import { UsersService } from 'src/users/users.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, JwtStrategy, GoogleStrategy],
+  providers: [
+    AuthService,
+    UsersService,
+    JwtStrategy,
+    GoogleStrategy,
+    KakaoStrategy,
+  ],
 })
 export class AuthModule {}

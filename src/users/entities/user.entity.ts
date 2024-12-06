@@ -8,6 +8,7 @@ export enum AuthProvider {
   GOOGLE = 'google',
   EMAIL = 'email',
   GITHUB = 'github',
+  KAKAO = 'kakao',
   APPLE = 'apple',
 }
 

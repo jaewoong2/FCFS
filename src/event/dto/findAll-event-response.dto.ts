@@ -1,7 +1,44 @@
 import { Exclude, Type } from 'class-transformer';
-import { User } from 'src/users/entities/user.entity';
+import { AuthProvider, User } from 'src/users/entities/user.entity';
 import { Participant } from '../entities/participant.entity';
 import { Image } from 'src/images/entities/image.entity';
+import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
+import { Event } from '../entities/event.entity';
+import { GifticonCategory } from 'src/gifticon/enums/gifticon-category.enum';
+
+class GifticonDto extends Gifticon {
+  @Exclude()
+  createdAt: Date;
+
+  @Exclude()
+  updateAt: Date;
+
+  @Exclude()
+  deletedAt?: Date;
+
+  @Exclude()
+  image: Image;
+
+  @Exclude()
+  category: GifticonCategory;
+
+  @Exclude()
+  claimedAt: Date;
+  @Exclude()
+  claimedBy: User;
+  @Exclude()
+  description: string;
+  @Exclude()
+  event: Event;
+  @Exclude()
+  message: string;
+  @Exclude()
+  isClaimed: boolean;
+  @Exclude()
+  name: string;
+  @Exclude()
+  user: User;
+}
 
 class UserDto extends User {
   @Exclude()
@@ -9,6 +46,24 @@ class UserDto extends User {
 
   @Exclude()
   updateAt: Date;
+
+  @Exclude()
+  gifticons: Gifticon[];
+
+  @Exclude()
+  provider: AuthProvider;
+
+  @Exclude()
+  claimedGifticons: Gifticon[];
+
+  @Exclude()
+  email: string;
+
+  @Exclude()
+  deletedAt?: Date;
+
+  @Exclude()
+  id: number;
 }
 
 class ParticipantDto extends Participant {
@@ -17,6 +72,15 @@ class ParticipantDto extends Participant {
 
   @Exclude()
   updateAt: Date;
+
+  @Exclude()
+  deletedAt?: Date;
+
+  @Exclude()
+  event: Event;
+
+  @Exclude()
+  participatedAt: Date;
 }
 
 export class GetEventResponseDto {
@@ -29,6 +93,8 @@ export class GetEventResponseDto {
   totalGifticons: number;
   createdAt: string;
   updateAt: string;
+  @Type(() => GifticonDto)
+  gifticons: Gifticon[];
   @Type(() => UserDto)
   user: UserDto;
   @Type(() => ParticipantDto)

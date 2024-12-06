@@ -32,4 +32,5 @@ export type BlockType =
   | 'divider'
   | 'table'
   | 'callout'
-  | 'auto-checkbox';
+  | 'auto-checkbox'
+  | 'cta-button';

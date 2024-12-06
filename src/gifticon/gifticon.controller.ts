@@ -88,8 +88,41 @@ export class GiftiConController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   async findAll(@Query() query: FindAllGifticonDto) {
-    const result = await this.giftiConService.findAll(query);
+    const result = await this.giftiConService.paginate(query, (qb) => {
+      if (query?.name) {
+        qb.andWhere('LOWER(gifticon.name) LIKE LOWER(:name)', {
+          name: `%${query?.name}%`,
+        });
+      }
+
+      if (query?.description) {
+        qb.andWhere('gifticon.description LIKE :description', {
+          description: `%${query?.description}%`,
+        });
+      }
+
+      if (query?.eventId) {
+        qb.andWhere('gifticon.eventId = :eventId', {
+          eventId: `${query?.eventId}`,
+        });
+      }
+
+      if (query?.userId) {
+        qb.andWhere('gifticon.userId = :userId', {
+          userId: `${query?.userId}`,
+        });
+      }
+
+      if (query?.claimedBy) {
+        qb.andWhere('gifticon.claimedBy = :claimedBy', {
+          claimedBy: `${query?.claimedBy}`,
+        });
+      }
+
+      return qb;
+    });
     return result;
   }
 }

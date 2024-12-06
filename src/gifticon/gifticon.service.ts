@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Gifticon } from './entities/gifticon.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOneOptions, Not, Repository } from 'typeorm';
+import {
+  DataSource,
+  FindOneOptions,
+  MoreThan,
+  MoreThanOrEqual,
+  Not,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import {
   AuthroizationException,
   EntityNotFoundException,
@@ -14,8 +22,11 @@ import { EventService } from 'src/event/event.service';
 import { ClaimGifticonDto } from './dto/claim-gifticon.dto';
 import { Participant } from 'src/event/entities/participant.entity';
 import { ImagesService } from 'src/images/images.service';
+import { PageOptionsDto } from 'src/core/types/pagination-post.dto';
+import { PageDto } from 'src/core/types/page.dto';
+import { PageMetaDto } from 'src/core/types/page-meta.dto';
 
-const DEFAULT_IMAGE = 'https://d3t7exr31xs1l7.cloudfront.net/images/ramram.png';
+const DEFAULT_IMAGE = 'https://images.bamtoly.com/images/ramram.png';
 
 export const CreateNotFoundMessage = (id?: number, name?: string) => {
   if (id) {
@@ -37,7 +48,7 @@ export class GifticonService {
     private readonly gifticonRepository: Repository<Gifticon>,
 
     @InjectRepository(Participant)
-    private readonly participantRepository: Repository<Participant>,
+    private readonly participantsRepository: Repository<Participant>,
 
     private readonly imagesService: ImagesService,
 
@@ -113,6 +124,7 @@ export class GifticonService {
     name,
     description,
     userId,
+    eventId,
     page = 1,
     limit = 10,
   }: FindAllGifticonDto) {
@@ -134,6 +146,10 @@ export class GifticonService {
       queryBuilder.andWhere('gifticon.userId :userId', { userId });
     }
 
+    if (eventId) {
+      queryBuilder.andWhere('gifticon.eventId :userId', { userId });
+    }
+
     queryBuilder.skip((page - 1) * limit).take(limit);
 
     queryBuilder.orderBy('gifticon.createdAt', 'ASC');
@@ -146,6 +162,47 @@ export class GifticonService {
       page,
       lastPage: Math.ceil(total / limit),
     };
+  }
+
+  async paginate(
+    pageOptionsDto: Partial<PageOptionsDto>,
+    attach?: <T>(qb: SelectQueryBuilder<T>) => SelectQueryBuilder<T>,
+  ): Promise<PageDto<Gifticon>> {
+    const qb = this.gifticonRepository
+      .createQueryBuilder('gifticon')
+      .leftJoinAndSelect('gifticon.image', 'image')
+      .leftJoinAndSelect('gifticon.event', 'gifticons');
+
+    attach(qb)
+      .orderBy('gifticon.createdAt', 'DESC')
+      .take(pageOptionsDto.take)
+      .skip(pageOptionsDto.skip);
+
+    // 결과를 가져오기
+    const [gifticons, total] = await qb.getManyAndCount();
+
+    const pageMetaDto = new PageMetaDto({
+      pageOptionsDto: {
+        skip: pageOptionsDto.skip,
+        page: pageOptionsDto.page,
+        take: pageOptionsDto.take,
+      },
+      total,
+    });
+
+    const last_page = pageMetaDto.last_page;
+
+    // const result = plainToInstance(GetEventResponseDto, events, {});
+
+    if (gifticons.length === 0) {
+      return new PageDto(gifticons, pageMetaDto);
+    }
+
+    if (last_page >= pageMetaDto.page) {
+      return new PageDto(gifticons, pageMetaDto);
+    } else {
+      throw EntityNotFoundException('해당 페이지는 존재하지 않습니다');
+    }
   }
 
   async create(
@@ -234,18 +291,29 @@ export class GifticonService {
   async claim({ eventId, userId }: ClaimGifticonDto) {
     try {
       const gifticon = await this.getRandomGifticon(eventId);
-      const participant = await this.participantRepository.findOne({
-        where: { user: { id: userId }, event: { id: eventId }, isApply: true },
+      const participants = await this.participantsRepository.find({
+        where: {
+          user: { id: userId },
+          event: { id: eventId },
+          isApply: true,
+          expiresAt: MoreThanOrEqual(new Date()), // 현재보다 이후에 만료되는에만 찾기
+        },
         relations: ['user'],
       });
 
-      if (!participant) {
+      if (participants.length > 1) {
+        throw ValidatationErrorException('참여 중인 유저 입니다.');
+      }
+
+      if (participants.length === 0) {
         throw ValidatationErrorException('참여하지 않은 유저 입니다.');
       }
 
       if (!gifticon) {
         throw EntityNotFoundException(CreateNotFoundMessage());
       }
+
+      const participant = participants[0];
 
       participant.isApply = false;
 
@@ -254,7 +322,7 @@ export class GifticonService {
       gifticon.claimedBy = participant.user;
 
       const result = await this.gifticonRepository.save(gifticon);
-      await this.participantRepository.save(participant);
+      await this.participantsRepository.save(participant);
 
       await this.eventService.updateEvent(gifticon.event.id, null, (event) => {
         event.totalGifticons = event.totalGifticons - 1;
@@ -263,14 +331,19 @@ export class GifticonService {
 
       return result;
     } catch (err) {
-      const participant = await this.participantRepository.findOne({
-        where: { user: { id: userId }, event: { id: eventId }, isApply: true },
+      const participant = await this.participantsRepository.findOne({
+        where: {
+          user: { id: userId },
+          event: { id: eventId },
+          isApply: true,
+          expiresAt: MoreThan(new Date()),
+        },
         relations: ['user'],
       });
 
       if (participant) {
         participant.isApply = false;
-        await this.participantRepository.save(participant);
+        await this.participantsRepository.save(participant);
       }
 
       throw err;

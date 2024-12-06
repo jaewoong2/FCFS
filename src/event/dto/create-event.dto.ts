@@ -10,10 +10,10 @@ import {
 import { Block } from '../types';
 
 export class CreateEventDto {
-  @Type(() => Number)
-  @IsNumber()
+  @Type(() => String)
+  @IsString()
   @IsOptional()
-  readonly userId?: number;
+  readonly userName?: string;
 
   @Type(() => Number)
   @IsNumber()

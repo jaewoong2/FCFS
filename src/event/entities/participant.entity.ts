@@ -4,14 +4,13 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
-  Unique,
+  BeforeUpdate,
 } from 'typeorm';
 import { Event } from './event.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Basic } from 'src/core/entities/basic.entitiy';
 
 @Entity('participants')
-@Unique(['event', 'user']) // Ensure uniqueness for the event-user combination
 export class Participant extends Basic {
   @PrimaryGeneratedColumn()
   id: number;
@@ -29,4 +28,18 @@ export class Participant extends Basic {
 
   @Column({ type: 'boolean', default: false })
   isApply: boolean;
+
+  @Column({
+    name: 'expires_at',
+    type: 'timestamp with time zone',
+    default: () => `now() + interval '1 minute'`,
+  })
+  expiresAt?: Date;
+
+  @BeforeUpdate()
+  setExpiresAt() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 1);
+    this.expiresAt = now;
+  }
 }
