@@ -6,6 +6,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 RUN ls -all
+ENV NODE_ENV production
 
 # 최종 스테이지
 FROM amazon/aws-lambda-nodejs
@@ -15,6 +16,8 @@ FROM amazon/aws-lambda-nodejs
 COPY --from=builder /app/dist /var/task/dist
 COPY --from=builder /app/node_modules /var/task/node_modules
 COPY --from=builder /app/.env /var/task/.env
+
+ENV NODE_ENV production
 # Lambda 핸들러 설정
-CMD ["dist/main.handler"]
+CMD ["dist/src/main.handler"]
 

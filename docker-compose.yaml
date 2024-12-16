@@ -2,7 +2,7 @@ version: '3.8'
 services:
   bamtoly:
     platform: linux/amd64
-    image: 849441246713.dkr.ecr.ap-northeast-2.amazonaws.com/fcfs:latest
+    image: 849441246713.dkr.ecr.ap-northeast-2.amazonaws.com/bamtoly/api_bamtoly
     build:
       dockerfile: Dockerfile
       args:

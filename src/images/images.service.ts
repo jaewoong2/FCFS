@@ -10,10 +10,21 @@ export class ImagesService {
     private readonly imageRepository: Repository<Image>,
   ) {}
 
-  async updateImage(callback: () => Image) {
-    const image = callback();
+  async updateImage(callback: (repositroy?: Repository<Image>) => Image) {
+    const image = callback(this.imageRepository);
 
     const result = await this.imageRepository.save(image);
+
+    return result;
+  }
+
+  async create(property: Partial<Image>) {
+    const repository = this.imageRepository;
+    const image = repository.create({
+      ...property,
+    });
+
+    const result = await repository.save(image);
 
     return result;
   }
@@ -41,5 +52,10 @@ export class ImagesService {
     }
 
     return image;
+  }
+
+  async deleteImage(image: Image) {
+    const result = await this.imageRepository.softRemove({ id: image.id });
+    return result;
   }
 }

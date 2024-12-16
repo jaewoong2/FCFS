@@ -17,6 +17,11 @@ import { ApiTags } from '@nestjs/swagger';
 import { KakaoAuthGuard } from './guard/kakao-auth.guard';
 import { KaKaoRedirectRequestType } from 'src/core/types';
 
+const REDIRECT_URL =
+  process.env.NODE_ENV === 'local'
+    ? 'http://localhost:3000'
+    : 'https://bamtoly.com';
+
 @ApiTags('api/auth')
 @Controller('api/auth')
 export class AuthController {
@@ -51,7 +56,7 @@ export class AuthController {
     );
 
     res.cookie('refresh_token', token.access_token, { httpOnly: true });
-    res.redirect(`http://localhost:3000/login?code=${token.access_token}`);
+    res.redirect(`${REDIRECT_URL}/login?code=${token.access_token}`);
   }
 
   @Get('google/login')
@@ -63,7 +68,7 @@ export class AuthController {
   async googleAuthRedirect(@Req() req, @Res() res) {
     const token = await this.authService.googleLogin(req, AuthProvider.GOOGLE);
     res.cookie('access_token', token.access_token, { httpOnly: true });
-    res.redirect(`http://localhost:3000/login?code=${token.access_token}`);
+    res.redirect(`${REDIRECT_URL}/login?code=${token.access_token}`);
   }
 
   @Post('signup')

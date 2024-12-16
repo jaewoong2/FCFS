@@ -32,10 +32,9 @@ function attachPipes(app: INestApplication) {
 
   app.enableCors({
     origin: [
-      'https://noting.prlc.kr',
       'http://localhost:3000',
-      'http://localhost:5173',
-      'chrome-extension://*',
+      'https://bamtoly.com',
+      'https://www.bamtoly.com',
     ],
     credentials: true,
     methods: ['*'],

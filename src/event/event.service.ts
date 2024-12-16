@@ -186,6 +186,7 @@ export class EventService {
         'gifticons',
         'thumbnails',
         'gifticons.image',
+        'gifticons.claimedBy',
       ],
       ...options,
     });

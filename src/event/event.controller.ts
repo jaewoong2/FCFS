@@ -106,7 +106,9 @@ export class EventController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async find(@Req() request: { user: User }, @Query() query?: FindEventDto) {
-    const result = await this.eventService.findEvent(query);
+    const result = await this.eventService.findEvent(query, {
+      order: { gifticons: { updateAt: 'DESC' } },
+    });
 
     if (result.user.id !== request.user.id) {
       throw AuthroizationException('잘못된 유저 접근 입니다.');

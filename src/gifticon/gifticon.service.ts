@@ -26,8 +26,6 @@ import { PageOptionsDto } from 'src/core/types/pagination-post.dto';
 import { PageDto } from 'src/core/types/page.dto';
 import { PageMetaDto } from 'src/core/types/page-meta.dto';
 
-const DEFAULT_IMAGE = 'https://images.bamtoly.com/images/ramram.png';
-
 export const CreateNotFoundMessage = (id?: number, name?: string) => {
   if (id) {
     return `GifticonId: ${id}인, 기프티콘이 존재 하지 않습니다.`;
@@ -68,37 +66,39 @@ export class GifticonService {
 
     return await this.gifticonRepository.softRemove({ id: gifticonId });
   }
-
   async update(
     gifticonId: number,
     { description, imageUrl, name }: UpdateGifticonDto,
   ) {
-    const gifticon = await this.find(gifticonId);
+    const gifticon = await this.find(gifticonId, undefined, {
+      relations: { image: true },
+    });
 
-    // 선택적 업데이트: 각 필드가 주어졌을 때만 업데이트
+    // 선택적 업데이트
     if (description) {
       gifticon.description = description;
     }
 
     if (imageUrl) {
-      const image = await this.imagesService.findOrCreate(
-        {
-          where: {
-            imageUrl: imageUrl ?? DEFAULT_IMAGE,
-            event: null,
-            gifticon: null,
-          },
-        },
-        { imageUrl: imageUrl, name: imageUrl },
-      );
+      // 기존 이미지 삭제 및 관계 해제
+      if (gifticon.image) {
+        await this.imagesService.deleteImage(gifticon.image);
+        gifticon.image = null;
+      }
 
+      const image = await this.imagesService.create({
+        imageUrl: imageUrl,
+        name: imageUrl,
+      });
+
+      // 새 이미지 할당
       gifticon.image = image;
     }
 
     if (name) {
       gifticon.name = name;
     }
-    // 변경사항 저장
+
     return this.gifticonRepository.save(gifticon);
   }
 
@@ -171,8 +171,9 @@ export class GifticonService {
     const qb = this.gifticonRepository
       .createQueryBuilder('gifticon')
       .leftJoinAndSelect('gifticon.image', 'image')
-      .leftJoinAndSelect('gifticon.event', 'gifticons');
-
+      .leftJoinAndSelect('gifticon.event', 'gifticons')
+      // with deleted
+      .withDeleted();
     attach(qb)
       .orderBy('gifticon.createdAt', 'DESC')
       .take(pageOptionsDto.take)

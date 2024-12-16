@@ -4,7 +4,6 @@ import { Participant } from '../entities/participant.entity';
 import { Image } from 'src/images/entities/image.entity';
 import { Gifticon } from 'src/gifticon/entities/gifticon.entity';
 import { Event } from '../entities/event.entity';
-import { GifticonCategory } from 'src/gifticon/enums/gifticon-category.enum';
 
 class GifticonDto extends Gifticon {
   @Exclude()
@@ -18,9 +17,6 @@ class GifticonDto extends Gifticon {
 
   @Exclude()
   image: Image;
-
-  @Exclude()
-  category: GifticonCategory;
 
   @Exclude()
   claimedAt: Date;
